@@ -1,7 +1,4 @@
-﻿using Catalog.Events;
-
-
-using Catalog.Contracts.IntegrationEvents;
+﻿using Catalog.Contracts.IntegrationEvents;
 
 namespace Catalog.Endpoints;
 

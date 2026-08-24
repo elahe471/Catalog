@@ -8,5 +8,5 @@ namespace Catalog.Contracts.IntegrationEvents
     string CatalogCategory,
     string CatalogBrand,
     string Slug,
-    string DetialUrl);
+    string DetailUrl);
 }
