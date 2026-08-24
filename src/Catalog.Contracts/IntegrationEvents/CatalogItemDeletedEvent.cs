@@ -4,6 +4,6 @@ using System.Text;
 
 namespace Catalog.Contracts.IntegrationEvents
 {
-    public record CatalogItemDeleteEvent(
+    public record CatalogItemDeletedEvent(
  string Slug);
 }

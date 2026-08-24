@@ -173,7 +173,7 @@ public static class CatalogItemEndpoints
         await services.Context.SaveChangesAsync(cancellationToken);
 
 
-        await services.Publish.Publish(new CatalogItemDeleteEvent(
+        await services.Publish.Publish(new CatalogItemDeletedEvent(
                 loadedItem.Slug));
 
         return TypedResults.NoContent();
