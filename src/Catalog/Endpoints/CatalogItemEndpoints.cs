@@ -9,8 +9,8 @@ public static class CatalogItemEndpoints
         app.MapPost("/", CreateItem);
         app.MapPut("/", UpdateItem);
         app.MapPatch("/max_stock_threshold", UpdateMaxStockThreshold);
-        app.MapDelete("/{slug:required}", DeleteItemById);
-        app.MapGet("/{slug:required}", GetItemById);
+        app.MapDelete("/{slug:required}", DeleteItemBySlug);
+        app.MapGet("/{slug:required}", GetItemBySlug);
         app.MapGet("/", GetItems);
 
         return app;
@@ -153,7 +153,7 @@ public static class CatalogItemEndpoints
         return TypedResults.Created($"/catalog/api/v1/items/{Item.Slug}");
     }
 
-    public static async Task<Results<NoContent, NotFound, BadRequest<string>>> DeleteItemById(
+    public static async Task<Results<NoContent, NotFound, BadRequest<string>>> DeleteItemBySlug(
     [AsParameters] CatalogServices services,
     string slug,
     CancellationToken cancellationToken)
@@ -163,18 +163,23 @@ public static class CatalogItemEndpoints
             return TypedResults.BadRequest("Slug is not valid.");
         }
 
-        var item = await services.Context.CatalogItems.FirstOrDefaultAsync(x => x.Slug == slug);
-        if (item is null)
+        var loadedItem = await services.Context.CatalogItems.FirstOrDefaultAsync(x => x.Slug == slug);
+        if (loadedItem is null)
         {
             return TypedResults.NotFound();
         }
 
-        services.Context.CatalogItems.Remove(item);
+        services.Context.CatalogItems.Remove(loadedItem);
         await services.Context.SaveChangesAsync(cancellationToken);
+
+
+        await services.Publish.Publish(new CatalogItemDeleteEvent(
+                loadedItem.Slug));
+
         return TypedResults.NoContent();
     }
 
-    public static async Task<Results<Ok<CatalogItemResponse>, NotFound, BadRequest<string>>> GetItemById(
+    public static async Task<Results<Ok<CatalogItemResponse>, NotFound, BadRequest<string>>> GetItemBySlug(
     [AsParameters] CatalogServices services,
     string slug)
     {
