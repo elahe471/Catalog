@@ -1,6 +1,7 @@
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddApplicationServices();
+builder.AddApplicationHealthChecks();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -14,6 +15,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.MapApplicationHealthChecks();
 
 app.MapGroup("/api/v1/brands")
    .WithTags("Brand APIs")

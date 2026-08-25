@@ -1,4 +1,4 @@
-﻿using Media.Infrastructure.IntegrationEvents;
+﻿using Catalog.Infrastructure.Consumers.IntegrationEvents;
 
 namespace Catalog.Infrastructure.Consumers;
 

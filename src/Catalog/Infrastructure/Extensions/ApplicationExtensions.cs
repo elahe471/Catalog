@@ -1,9 +1,4 @@
-﻿using FluentValidation;
-using MassTransit.Configuration;
-using Microsoft.AspNetCore.Identity;
-
-namespace Catalog.Infrastructure.Extensions;
-
+﻿namespace Catalog.Infrastructure.Extensions;
 public static class ApplicationExtensions
 {
     public static void AddApplicationServices(this IHostApplicationBuilder builder)
