@@ -1,4 +1,6 @@
-﻿using Catalog.Infrastructure.Consumers.IntegrationEvents;
+﻿
+
+using Media.Contracts.IntegrationEvents;
 
 namespace Catalog.Infrastructure.Consumers;
 
@@ -15,7 +17,7 @@ public class MediaUploadedEventConsumer(CatalogDbContext catalogDbContext) : ICo
         if (catalogItem is null)
             return;
 
-        catalogItem.AddMedia(context.Message.FileName, context.Message.Url);
+        catalogItem.AddMedia(context.Message.FileName, context.Message.URL);
         await _catalogDbContext.SaveChangesAsync();
     }
 }
