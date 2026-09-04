@@ -3,7 +3,7 @@ public static class ApplicationExtensions
 {
     public static void AddApplicationServices(this IHostApplicationBuilder builder)
     {
-        builder.Services.AddDbContext<CatalogDbContext>(configure =>
+        builder.Services.AddDbContextPool<CatalogDbContext>(configure =>
         {
             configure.UseSqlServer(builder.Configuration.GetConnectionString(CatalogDbContext.DefaultConnectionStringName));
         });

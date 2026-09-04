@@ -33,5 +33,18 @@ public sealed class CatalogItemEntityTypeConfiguration : IEntityTypeConfiguratio
                    .IsRequired()
                    .HasMaxLength(1098);
         });
+
+        builder.HasIndex(x => x.Slug)
+    .IsUnique()
+    .HasDatabaseName("UX_CatalogItems_Slug");
+
+        builder.HasIndex(x => new
+        {
+            x.Name,
+            x.Slug
+        })
+        .HasDatabaseName("IX_CatalogItems_Name_Slug");
+
+
     }
 }

@@ -8,6 +8,7 @@ global using System.Reflection;
 global using Microsoft.AspNetCore.Http.HttpResults;
 global using Microsoft.Extensions.Options;
 
+
 // third-party
 global using MassTransit;
 global using FluentValidation;
@@ -21,3 +22,5 @@ global using Catalog.Infrastructure;
 global using Catalog.Endpoints.Contracts;
 global using Catalog.Endpoints;
 global using Catalog.Infrastructure.HealthChecks;
+global using Catalog.Contracts.IntegrationEvents;
+global using Catalog.Infrastructure.CustomModel;

@@ -1,4 +1,5 @@
-﻿using Catalog.Contracts.IntegrationEvents;
+﻿
+using Catalog.Infrastructure.Helper;
 
 namespace Catalog.Endpoints;
 
@@ -211,28 +212,81 @@ public static class CatalogItemEndpoints
                 item.AvailableStock,
                 item.MaxStockThreshold, [.. item.Medias]));
     }
-
-    public static async Task<Results<Ok<IEnumerable<CatalogItemResponse>>, BadRequest<string>>> GetItems(
+    public static async Task<
+    Results<Ok<CursorPaginated<CatalogItemResponse>>, BadRequest<string>>> GetItems(
     [AsParameters] CatalogServices services,
-    CancellationToken cancellationToken)
+    string? cursor = null,
+    int pageSize = 20,
+    CancellationToken cancellationToken = default)
     {
-        var items = (await services.Context.CatalogItems
-                                          .Include(x => x.CatalogBrand)
-                                          .Include(x => x.CatalogCategory)
-                                          .OrderBy(c => c.Name)
-                                          .ToListAsync(cancellationToken))
-                                          .Select(x => new CatalogItemResponse(x.Name,
-                                                                               x.Slug,
-                                                                               x.Description,
-                                                                               x.CatalogBrandId,
-                                                                               x.CatalogBrand.Brand,
-                                                                               x.CatalogCategoryId,
-                                                                               x.CatalogCategory.Category,
-                                                                               x.Price,
-                                                                               x.AvailableStock,
-                                                                               x.MaxStockThreshold, [.. x.Medias]))
-                                          ;
+        if (pageSize <= 0 || pageSize > 100)
+            return TypedResults.BadRequest(
+                "PageSize must be between 1 and 100.");
 
-        return TypedResults.Ok<IEnumerable<CatalogItemResponse>>(items);
+        CatalogCursor? decodedCursor = null;
+
+        if (!string.IsNullOrWhiteSpace(cursor))
+        {
+            decodedCursor = CursorHelper.Decode<CatalogCursor>(cursor);
+
+            if (decodedCursor is null)
+                return TypedResults.BadRequest("Invalid cursor.");
+        }
+
+        var query = services.Context.CatalogItems
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (decodedCursor is not null)
+        {
+            query = query.Where(x =>
+                string.Compare(x.Name, decodedCursor.Name) > 0 ||
+                (
+                    x.Name == decodedCursor.Name &&
+                    string.Compare(x.Slug, decodedCursor.Slug) > 0
+                ));
+        }
+
+        var items = await query
+            .OrderBy(x => x.Name)
+            .ThenBy(x => x.Slug)
+            .Take(pageSize + 1)
+            .Select(x => new CatalogItemResponse(
+                x.Name,
+                x.Slug,
+                x.Description,
+                x.CatalogBrandId,
+                x.CatalogBrand.Brand,
+                x.CatalogCategoryId,
+                x.CatalogCategory.Category,
+                x.Price,
+                x.AvailableStock,
+                x.MaxStockThreshold,
+                x.Medias.ToArray()))
+            .ToListAsync(cancellationToken);
+
+        var hasNextPage = items.Count > pageSize;
+
+        if (hasNextPage)
+            items.RemoveAt(items.Count - 1);
+
+        string? nextCursor = null;
+
+        if (hasNextPage && items.Count > 0)
+        {
+            var lastItem = items[^1];
+
+            nextCursor = CursorHelper.Encode(
+                new CatalogCursor(
+                    lastItem.Name,
+                    lastItem.Slug));
+        }
+
+        return TypedResults.Ok(
+            new CursorPaginated<CatalogItemResponse>(
+                items,
+                pageSize,
+                hasNextPage,
+                nextCursor));
     }
 }
