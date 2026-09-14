@@ -24,3 +24,5 @@ global using Catalog.Endpoints;
 global using Catalog.Infrastructure.HealthChecks;
 global using Catalog.Contracts.IntegrationEvents;
 global using Catalog.Infrastructure.CustomModel;
+global using Catalog.Configurations;
+global using Catalog.Infrastructure.InternalServices;

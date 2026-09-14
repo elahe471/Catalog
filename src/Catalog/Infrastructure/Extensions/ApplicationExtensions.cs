@@ -1,4 +1,6 @@
-﻿namespace Catalog.Infrastructure.Extensions;
+﻿
+
+namespace Catalog.Infrastructure.Extensions;
 public static class ApplicationExtensions
 {
     public static void AddApplicationServices(this IHostApplicationBuilder builder)
@@ -7,15 +9,12 @@ public static class ApplicationExtensions
         {
             configure.UseSqlServer(builder.Configuration.GetConnectionString(CatalogDbContext.DefaultConnectionStringName));
         });
+        builder.Services.AddOptions<BrokerOptions>().BindConfiguration(BrokerOptions.SectionName);
+        builder.Services.AddOptions<ShortenerOptions>().BindConfiguration(ShortenerOptions.SectionName);
 
         builder.Services.AddMassTransit(configure =>
         {
-            var brokerConfig = builder.Configuration.GetSection(BrokerOptions.SectionName)
-                                                    .Get<BrokerOptions>();
-            if (brokerConfig is null)
-            {
-                throw new ArgumentNullException(nameof(BrokerOptions));
-            }
+            var brokerConfig = builder.Configuration.GetRequiredSection(BrokerOptions.SectionName).Get<BrokerOptions>()!;
 
             configure.AddConsumers(Assembly.GetExecutingAssembly());
             configure.UsingRabbitMq((context, cfg) =>
@@ -30,8 +29,17 @@ public static class ApplicationExtensions
             });
         });
 
+
+
+
+        builder.Services.AddHttpClient<UrlShortenerService>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<ShortenerOptions>>().Value;
+            client.BaseAddress = new Uri(options.BaseUrl);
+        });
+
+
         builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
-        builder.Services.AddOptions<CatalogOptions>()
-                        .BindConfiguration(nameof(CatalogOptions));
+   
     }
 }

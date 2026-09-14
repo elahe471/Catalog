@@ -1,5 +1,7 @@
 ﻿
 using Catalog.Infrastructure.Helper;
+using Catalog.Infrastructure.InternalServices;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Catalog.Endpoints;
 
@@ -13,6 +15,7 @@ public static class CatalogItemEndpoints
         app.MapDelete("/{slug:required}", DeleteItemBySlug);
         app.MapGet("/{slug:required}", GetItemBySlug);
         app.MapGet("/", GetItems);
+        app.MapPost("/{slug:required}/Remind", RemindItem);
 
         return app;
     }
@@ -22,6 +25,7 @@ public static class CatalogItemEndpoints
         CreateCatalogItemRequest itemToCreate,
         IValidator<CreateCatalogItemRequest> validator,
         IPublishEndpoint publishEndpoint,
+         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
         var validate = validator.Validate(itemToCreate);
@@ -57,12 +61,12 @@ public static class CatalogItemEndpoints
         services.Context.CatalogItems.Add(item);
         await services.Context.SaveChangesAsync(cancellationToken);
 
-        var detailUrl = $"/catalog/api/v1/items/{item.Slug}";
+      
         var loadedItem = await services.Context.CatalogItems
                                                     .Include(ci => ci.CatalogBrand)
                                                     .Include(ci => ci.CatalogCategory)
                                                     .FirstAsync(x => x.Slug == item.Slug);
-
+        var detailUrl = GetDetailUrl(httpContext,loadedItem.Slug);
         await services.Publish.Publish(new CatalogItemAddedEvent(
                 loadedItem.Name,
                 loadedItem.Description,
@@ -77,6 +81,7 @@ public static class CatalogItemEndpoints
     public static async Task<Results<Created, ValidationProblem, NotFound<string>, BadRequest<string>>> UpdateItem(
     [AsParameters] CatalogServices services,
     UpdateCatalogItemRequest itemToUpdate,
+    HttpContext httpContext,
     IValidator<UpdateCatalogItemRequest> validator,
     CancellationToken cancellationToken)
     {
@@ -116,7 +121,7 @@ public static class CatalogItemEndpoints
                                             .Include(ci => ci.CatalogCategory)
                                             .FirstAsync(x => x.Slug == Item.Slug);
 
-        var detailUrl = $"/catalog/api/v1/items/{loadedItem.Slug}";
+        var detailUrl = GetDetailUrl(httpContext, loadedItem.Slug);
 
         await services.Publish.Publish(new CatalogItemChangedEvent(
                 loadedItem.Name,
@@ -288,5 +293,41 @@ public static class CatalogItemEndpoints
                 pageSize,
                 hasNextPage,
                 nextCursor));
+    }
+
+
+    public static async Task<Results<Created,NotFound<string>, BadRequest<string>>> RemindItem(RemindItemRequest request,[FromQuery(Name = "user_id")]Guid userId,string slug, [AsParameters] CatalogServices services, IPublishEndpoint publish, UrlShortenerService urlShortenerService, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(slug))
+        {
+            return TypedResults.BadRequest("Slug is not valid.");
+        }
+
+        var loadedItem = await services.Context.CatalogItems.FirstOrDefaultAsync(x => x.Slug == slug);
+        if (loadedItem is null)
+        {
+            return TypedResults.NotFound($"Item with slug {slug} not found.");
+        }
+        if (loadedItem.AvailableStock>0)
+        {
+            return TypedResults.BadRequest("Pleaase make your order, the product is available now in stock");
+        }
+        var url = await urlShortenerService.GetShortUrl(GetDetailUrl(httpContext,loadedItem.Slug), DateTime.UtcNow.AddDays(7), cancellationToken);
+        var templatemessage = $"""
+            Dear customer,
+            The product you requested now is available in stock. 
+            Please make your order with following link: 
+            {url}
+            """;
+        var channel = NotificationChannel.Sms;
+        var remindMessage = new CatalogItemRemindMessage(userId, loadedItem.Slug, templatemessage, channel);
+        await publish.Publish(remindMessage, cancellationToken);
+
+        return TypedResults.Created();
+
+    }
+    private static string GetDetailUrl(HttpContext httpContext, string slug)
+    {
+        return $"{httpContext.Request.Scheme}://{httpContext.Request.Host}/catalog/api/v1/items/{slug}";
     }
 }
