@@ -1,13 +1,11 @@
-﻿namespace Catalog.Infrastructure.InternalServices;
+﻿
+namespace Catalog.Infrastructure.InternalServices;
 
 public class UrlShortenerService(HttpClient httpClient)
 {
-    public async Task<string> GetShortUrl(
-        string longUrl,
-        DateTime expirationDate,
-        CancellationToken cancellationToken = default)
+    public async Task<string> GetShortUrl(string longUrl,DateTime expirationDate,CancellationToken cancellationToken = default)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, "shortener")
+        using var request = new HttpRequestMessage(HttpMethod.Post, "shortener")
         {
             Content = JsonContent.Create(new
             {
@@ -16,10 +14,21 @@ public class UrlShortenerService(HttpClient httpClient)
             })
         };
 
-        using var response = await httpClient.SendAsync(request, cancellationToken);
+        try
+        {
+            using var response = await httpClient.SendAsync( request, cancellationToken);
 
-        response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadAsStringAsync(cancellationToken);
+            return response.IsSuccessStatusCode
+                ? await response.Content.ReadAsStringAsync(cancellationToken)
+                : throw new ExternalServiceException("UrlShortener",StatusCodes.Status502BadGateway,MessageCode.ExternalServiceFailure);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ExternalServiceException( "UrlShortener",StatusCodes.Status504GatewayTimeout,MessageCode.ExternalServiceTimeout,ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ExternalServiceException("UrlShortener",StatusCodes.Status503ServiceUnavailable,MessageCode.ExternalServiceUnavailable,ex);
+        }
     }
 }

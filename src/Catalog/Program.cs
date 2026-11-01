@@ -3,18 +3,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddApplicationServices();
 builder.ConfigureBroker();
 builder.ConfigureHealthChecks();
+builder.ConfigureGlobalExceptions();
 
 
-builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
-{
-    context.ProblemDetails.Instance ??= context.HttpContext.Request.Path;
-    context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
-});
-builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
  
+
 var app = builder.Build();
 
 app.UseExceptionHandler();

@@ -31,6 +31,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
                 QuantityGreaterThanZeroException => (StatusCodes.Status400BadRequest, MessageCode.InvalidQuantity),
                 MaxStockThresholdGreaterThanZeroException => (StatusCodes.Status400BadRequest, MessageCode.InvalidMaxStockThreshold),
                 CatalogDomainException => (StatusCodes.Status400BadRequest, MessageCode.DomainRuleViolation),
+                ExternalServiceException external =>(external.StatusCode, external.Code),
                 _ => (StatusCodes.Status500InternalServerError, MessageCode.UnexpectedError)
             };
             problem = new ProblemDetails
@@ -40,7 +41,23 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
             };
             problem.Extensions["code"] = code.ToString();
             if (status >= 500)
-                logger.LogError(exception, "Unhandled exception processing {Path}", context.Request.Path);
+            {
+                if (exception is ExternalServiceException external)
+                {
+                    logger.LogError(
+                        exception,
+                        "External service {ServiceName} failed while processing {Path}",
+                        external.ServiceName,
+                        context.Request.Path);
+                }
+                else
+                {
+                    logger.LogError(
+                        exception,
+                        "Unhandled exception processing {Path}",
+                        context.Request.Path);
+                }
+            }
         }
 
         problem.Title = ReasonPhrases.GetReasonPhrase(problem.Status!.Value);

@@ -1,3 +1,6 @@
+using Azure;
+using System.Timers;
+
 namespace Catalog.Infrastructure.Errors;
 
 public enum MessageCode
@@ -7,7 +10,8 @@ public enum MessageCode
     BrandNotFound, CategoryNotFound, ItemNotFound, CategoryHasChildren,
     InvalidPageSize, InvalidCursor, ItemInStock, ReminderAlreadyExists,
     EmptyStock, InvalidPrice, InvalidQuantity, InvalidMaxStockThreshold,
-    InvalidRequest, DomainRuleViolation, UnexpectedError, PositiveParentId, ServiceUnavailable
+    InvalidRequest, DomainRuleViolation, UnexpectedError, PositiveParentId, ServiceUnavailable,
+    ExternalServiceUnavailable, ExternalServiceTimeout, ExternalServiceFailure
 }
 
 public static class MessageTranslator
@@ -41,6 +45,9 @@ public static class MessageTranslator
             MessageCode.ServiceUnavailable => "The service is temporarily unavailable.",
             MessageCode.UnexpectedError => "An unexpected error occurred.",
             MessageCode.PositiveParentId => "ParentId, if provided, must be greater than zero.",
+            MessageCode.ExternalServiceUnavailable => "A required service is temporarily unavailable.",
+            MessageCode.ExternalServiceTimeout => "A required service did not respond in time.",
+            MessageCode.ExternalServiceFailure => "A required service returned an invalid response.",
             _ => throw new ArgumentOutOfRangeException(nameof(code), code, null)
         };
         return string.Format(System.Globalization.CultureInfo.CurrentCulture, template, arguments);
