@@ -1,4 +1,4 @@
-﻿namespace Catalog.Endpoints.Contracts;
+namespace Catalog.Endpoints.Contracts;
 
 public sealed record CreateCatalogCategoryRequest(string Category, int? ParentId);
 
@@ -12,6 +12,6 @@ public sealed class CreateCatalogCategoryRequestValidator : AbstractValidator<Cr
             .MaximumLength(100);
 
         RuleFor(x => x.ParentId)
-            .Must(x => !x.HasValue || (x.HasValue && x.Value > 0)).WithMessage("ParentId, if provided, must be a greater than zero.");
+            .Must(x => !x.HasValue || (x.HasValue && x.Value > 0)).WithMessage(MessageTranslator.Translate(MessageCode.PositiveParentId));
     }
 }

@@ -7,6 +7,7 @@ global using System.Text.RegularExpressions;
 global using System.Reflection;
 global using Microsoft.AspNetCore.Http.HttpResults;
 global using Microsoft.Extensions.Options;
+global using Microsoft.AspNetCore.WebUtilities;
 
 
 // third-party
@@ -26,3 +27,5 @@ global using Catalog.Contracts.IntegrationEvents;
 global using Catalog.Infrastructure.CustomModel;
 global using Catalog.Configurations;
 global using Catalog.Infrastructure.InternalServices;
+global using Catalog.Infrastructure.Errors;
+

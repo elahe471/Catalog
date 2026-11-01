@@ -1,4 +1,4 @@
-﻿namespace Catalog.Endpoints;
+namespace Catalog.Endpoints;
 
 public static class CatalogCategoryEndpoints
 {
@@ -13,7 +13,7 @@ public static class CatalogCategoryEndpoints
         return app;
     }
 
-    public static async Task<Results<Created, ValidationProblem, BadRequest<string>>> CreateCategory(
+    public static async Task<Results<Created, ValidationProblem, ProblemHttpResult>> CreateCategory(
         [AsParameters] CatalogServices services,
         CreateCatalogCategoryRequest categoryToCreate,
         IValidator<CreateCatalogCategoryRequest> validator,
@@ -30,7 +30,7 @@ public static class CatalogCategoryEndpoints
             var hasParent = await services.Context.CatalogCategories.AnyAsync(x => x.Id == categoryToCreate.ParentId, cancellationToken);
             if (!hasParent)
             {
-                return TypedResults.BadRequest($"A parent Id is not valid.");
+                return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidParentId);
             }
         }
 
@@ -39,7 +39,7 @@ public static class CatalogCategoryEndpoints
                                                                                  cancellationToken);
         if (hasCategory)
         {
-            return TypedResults.BadRequest($"A Category with the name '{categoryToCreate.Category}' in this level already exists.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.CategoryAlreadyExists, categoryToCreate.Category);
         }
 
         var category = CatalogCategory.Create(categoryToCreate.Category, categoryToCreate.ParentId);
@@ -50,7 +50,7 @@ public static class CatalogCategoryEndpoints
         return TypedResults.Created($"/catalog/api/v1/categories/{category.Id}");
     }
 
-    public static async Task<Results<Created, ValidationProblem, NotFound<string>>> UpdateCategory(
+    public static async Task<Results<Created, ValidationProblem, ProblemHttpResult>> UpdateCategory(
     [AsParameters] CatalogServices services,
     UpdateCatalogCategoryRequest categoryToUpdate,
     IValidator<UpdateCatalogCategoryRequest> validator,
@@ -65,7 +65,7 @@ public static class CatalogCategoryEndpoints
         var category = await services.Context.CatalogCategories.FirstOrDefaultAsync(i => i.Id == categoryToUpdate.Id, cancellationToken);
         if (category is null)
         {
-            return TypedResults.NotFound($"Category with id {categoryToUpdate.Id} not found.");
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.CategoryNotFound, categoryToUpdate.Id);
         }
 
         category.Update(categoryToUpdate.Category);
@@ -74,12 +74,12 @@ public static class CatalogCategoryEndpoints
         return TypedResults.Created($"/catalog/api/v1/categories/{category.Id}");
     }
 
-    public static async Task<Results<NoContent, NotFound, BadRequest<string>>> DeleteCategoryById
+    public static async Task<Results<NoContent, ProblemHttpResult>> DeleteCategoryById
         ([AsParameters] CatalogServices services, int id, CancellationToken cancellationToken)
     {
         if (id <= 0)
         {
-            return TypedResults.BadRequest("Id is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidId);
         }
 
         var category = await services.Context.CatalogCategories
@@ -87,12 +87,12 @@ public static class CatalogCategoryEndpoints
                                              .FirstOrDefaultAsync(x => x.Id == id);
         if (category is null)
         {
-            return TypedResults.NotFound();
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.CategoryNotFound, id);
         }
 
         if (category.Children.Any())
         { 
-            return TypedResults.BadRequest("The category has child categories and cannot be deleted.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.CategoryHasChildren);
         }
 
         services.Context.CatalogCategories.Remove(category);
@@ -100,13 +100,13 @@ public static class CatalogCategoryEndpoints
         return TypedResults.NoContent();
     }
 
-    public static async Task<Results<Ok<CatalogCategoryResponse>, NotFound, BadRequest<string>>> GetCategoryById(
+    public static async Task<Results<Ok<CatalogCategoryResponse>, ProblemHttpResult>> GetCategoryById(
     [AsParameters] CatalogServices services,
     int id)
     {
         if (id <= 0)
         {
-            return TypedResults.BadRequest("Id is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidId);
         }
 
         var category = await services.Context.CatalogCategories 
@@ -114,13 +114,13 @@ public static class CatalogCategoryEndpoints
                                              .FirstOrDefaultAsync(ci => ci.Id == id);
         if (category is null)
         {
-            return TypedResults.NotFound();
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.CategoryNotFound, id);
         }
 
         return TypedResults.Ok(new CatalogCategoryResponse(id, category.Category, category.Path));
     }
 
-    public static async Task<Results<Ok<IEnumerable<CatalogCategoryResponse>>, BadRequest<string>>> GetCategories(
+    public static async Task<Results<Ok<IEnumerable<CatalogCategoryResponse>>, ProblemHttpResult>> GetCategories(
     [AsParameters] CatalogServices services,
     CancellationToken cancellationToken)
     {

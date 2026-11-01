@@ -1,4 +1,4 @@
-﻿namespace Catalog.Endpoints;
+namespace Catalog.Endpoints;
 
 public static class CatalogBrandEndpoints
 {
@@ -13,7 +13,7 @@ public static class CatalogBrandEndpoints
         return app;
     }
 
-    public static async Task<Results<Created, ValidationProblem, BadRequest<string>>> CreateBrand(
+    public static async Task<Results<Created, ValidationProblem, ProblemHttpResult>> CreateBrand(
         [AsParameters] CatalogServices services,
         CreateCatalogBrandRequest brandToCreate,
         IValidator<CreateCatalogBrandRequest> validator,
@@ -28,7 +28,7 @@ public static class CatalogBrandEndpoints
         var hasBrand = await services.Context.CatalogBrands.AnyAsync(x => x.Brand == brandToCreate.Brand, cancellationToken);
         if (hasBrand)
         {
-            return TypedResults.BadRequest($"A brand with the name '{brandToCreate.Brand}' already exists.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.BrandAlreadyExists, brandToCreate.Brand);
         }
 
         var brand = CatalogBrand.Create(brandToCreate.Brand);
@@ -39,7 +39,7 @@ public static class CatalogBrandEndpoints
         return TypedResults.Created($"/catalog/api/v1/brands/{brand.Id}");
     }
 
-    public static async Task<Results<Created, ValidationProblem, NotFound<string>>> UpdateBrand(
+    public static async Task<Results<Created, ValidationProblem, ProblemHttpResult>> UpdateBrand(
     [AsParameters] CatalogServices services,
     UpdateCatalogBrandRequest brandToUpdate,
     IValidator<UpdateCatalogBrandRequest> validator,
@@ -54,7 +54,7 @@ public static class CatalogBrandEndpoints
         var brand = await services.Context.CatalogBrands.FirstOrDefaultAsync(i => i.Id == brandToUpdate.Id, cancellationToken);
         if (brand is null)
         {
-            return TypedResults.NotFound($"Brand with id {brandToUpdate.Id} not found.");
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.BrandNotFound, brandToUpdate.Id);
         }
 
         brand.Update(brandToUpdate.Brand);
@@ -63,18 +63,18 @@ public static class CatalogBrandEndpoints
         return TypedResults.Created($"/catalog/api/v1/brands/{brand.Id}");
     }
 
-    public static async Task<Results<NoContent, NotFound, BadRequest<string>>> DeleteBrandById
+    public static async Task<Results<NoContent, ProblemHttpResult>> DeleteBrandById
         ([AsParameters] CatalogServices services, int id, CancellationToken cancellationToken)
     {
         if (id <= 0)
         {
-            return TypedResults.BadRequest("Id is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidId);
         }
 
         var brand = await services.Context.CatalogBrands.FirstOrDefaultAsync(x => x.Id == id);
         if (brand is null)
         {
-            return TypedResults.NotFound();
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.BrandNotFound, id);
         }
 
         services.Context.CatalogBrands.Remove(brand);
@@ -82,25 +82,25 @@ public static class CatalogBrandEndpoints
         return TypedResults.NoContent();
     }
 
-    public static async Task<Results<Ok<CatalogBrandResponse>, NotFound, BadRequest<string>>> GetBrandById(
+    public static async Task<Results<Ok<CatalogBrandResponse>, ProblemHttpResult>> GetBrandById(
     [AsParameters] CatalogServices services,
     int id)
     {
         if (id <= 0)
         {
-            return TypedResults.BadRequest("Id is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidId);
         }
 
         var brand = await services.Context.CatalogBrands.FirstOrDefaultAsync(ci => ci.Id == id);
         if (brand is null)
         {
-            return TypedResults.NotFound();
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.BrandNotFound, id);
         }
 
         return TypedResults.Ok(new CatalogBrandResponse(id, brand.Brand));
     }
 
-    public static async Task<Results<Ok<IEnumerable<CatalogBrandResponse>>, BadRequest<string>>> GetBrands(
+    public static async Task<Results<Ok<IEnumerable<CatalogBrandResponse>>, ProblemHttpResult>> GetBrands(
     [AsParameters] CatalogServices services,
     CancellationToken cancellationToken)
     {

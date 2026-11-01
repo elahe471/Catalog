@@ -104,4 +104,5 @@ public class CatalogItem
     {
         Medias.Add(new CatalogMedia(fileName, url));
     }
+ 
 }

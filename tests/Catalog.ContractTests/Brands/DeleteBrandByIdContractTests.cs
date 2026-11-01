@@ -1,4 +1,4 @@
-﻿using Catalog.Endpoints;
+using Catalog.Endpoints;
 using Catalog.Infrastructure;
 using Catalog.Models;
 using Catalog.Services;
@@ -7,7 +7,6 @@ using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Catalog.ContractTests.Brands;
@@ -20,12 +19,11 @@ public class DeleteBrandByIdContractTests
                         .UseInMemoryDatabase(databaseName)
                         .Options;
 
-        var optionsMock = new Mock<IOptions<CatalogOptions>>();
         var loggerMock = new Mock<ILogger<CatalogServices>>();
         var publisherMock = new Mock<IPublishEndpoint>();
 
         var context = new CatalogDbContext(options);
-        var mockServices = new CatalogServices(context, optionsMock.Object, loggerMock.Object, publisherMock.Object);
+        var mockServices = new CatalogServices(context,  loggerMock.Object, publisherMock.Object);
 
         return mockServices;
     }
@@ -40,8 +38,10 @@ public class DeleteBrandByIdContractTests
         var results = await CatalogBrandEndpoints.DeleteBrandById(mockServices, -1, CancellationToken.None);
 
         // Assert
-        results.Result.Should().BeOfType<BadRequest<string>>()
-                       .Which.Value.Should().Be("Id is not valid.");
+        var problem = results.Result.Should().BeOfType<ProblemHttpResult>().Which.ProblemDetails;
+        problem.Status.Should().Be(400);
+        problem.Detail.Should().Be("Id is not valid.");
+        problem.Extensions["code"].Should().Be("InvalidId");
     }
 
     [Fact]
@@ -54,7 +54,9 @@ public class DeleteBrandByIdContractTests
         var results = await CatalogBrandEndpoints.DeleteBrandById(mockServices, 999, CancellationToken.None);
 
         // Assert
-        results.Result.Should().BeOfType<NotFound>();
+        var problem = results.Result.Should().BeOfType<ProblemHttpResult>().Which.ProblemDetails;
+        problem.Status.Should().Be(404);
+        problem.Detail.Should().Be("Brand with id 999 not found.");
     }
 
     [Fact]

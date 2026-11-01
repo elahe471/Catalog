@@ -1,9 +1,9 @@
 ﻿
 namespace Catalog.Infrastructure.Extensions
 {
-    public static class HealthCheckExtensions
+    public static class HealthCheckBuilderExtensions
     {
-        public static void AddApplicationHealthChecks(this IHostApplicationBuilder builder)
+        public static void ConfigureHealthChecks(this IHostApplicationBuilder builder)
         {
 
             builder.Services

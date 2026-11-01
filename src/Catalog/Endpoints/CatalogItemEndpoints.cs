@@ -1,6 +1,5 @@
-﻿
+
 using Catalog.Infrastructure.Helper;
-using Catalog.Infrastructure.InternalServices;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Catalog.Endpoints;
@@ -20,7 +19,7 @@ public static class CatalogItemEndpoints
         return app;
     }
 
-    public static async Task<Results<Created, ValidationProblem, BadRequest<string>>> CreateItem(
+    public static async Task<Results<Created, ValidationProblem, ProblemHttpResult>> CreateItem(
         [AsParameters] CatalogServices services,
         CreateCatalogItemRequest itemToCreate,
         IValidator<CreateCatalogItemRequest> validator,
@@ -37,19 +36,19 @@ public static class CatalogItemEndpoints
         var hasCategory = await services.Context.CatalogCategories.AnyAsync(x => x.Id == itemToCreate.CatalogId, cancellationToken);
         if (!hasCategory)
         {
-            return TypedResults.BadRequest($"A category Id is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidCategoryId);
         }
 
         var hasBrand = await services.Context.CatalogBrands.AnyAsync(x => x.Id == itemToCreate.BrandId, cancellationToken);
         if (!hasBrand)
         {
-            return TypedResults.BadRequest($"A brand Id is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidBrandId);
         }
 
         var hasItemSlug = await services.Context.CatalogItems.AnyAsync(x => x.Slug == itemToCreate.Name.ToKebabCase(), cancellationToken);
         if (hasItemSlug)
         {
-            return TypedResults.BadRequest($"A Item with the slug '{itemToCreate.Name.ToKebabCase()}' already exists.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.ItemAlreadyExists, itemToCreate.Name.ToKebabCase());
         }
 
         var item = CatalogItem.Create(
@@ -78,7 +77,7 @@ public static class CatalogItemEndpoints
         return TypedResults.Created(detailUrl);
     }
 
-    public static async Task<Results<Created, ValidationProblem, NotFound<string>, BadRequest<string>>> UpdateItem(
+    public static async Task<Results<Created, ValidationProblem, ProblemHttpResult>> UpdateItem(
     [AsParameters] CatalogServices services,
     UpdateCatalogItemRequest itemToUpdate,
     HttpContext httpContext,
@@ -95,19 +94,19 @@ public static class CatalogItemEndpoints
                                                 .FirstOrDefaultAsync(i => i.Slug == itemToUpdate.slug, cancellationToken);
         if (Item is null)
         {
-            return TypedResults.NotFound($"Item with slug {itemToUpdate.slug} not found.");
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.ItemNotFound, itemToUpdate.slug);
         }
 
         var hasCategory = await services.Context.CatalogCategories.AnyAsync(x => x.Id == itemToUpdate.CatalogId, cancellationToken);
         if (!hasCategory)
         {
-            return TypedResults.BadRequest($"A category Id is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidCategoryId);
         }
 
         var hasBrand = await services.Context.CatalogBrands.AnyAsync(x => x.Id == itemToUpdate.BrandId, cancellationToken);
         if (!hasBrand)
         {
-            return TypedResults.BadRequest($"A brand Id is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidBrandId);
         }
 
         Item.Update(itemToUpdate.Description,
@@ -134,7 +133,7 @@ public static class CatalogItemEndpoints
         return TypedResults.Created(detailUrl);
     }
 
-    public static async Task<Results<Created, ValidationProblem, NotFound<string>, BadRequest<string>>> UpdateMaxStockThreshold(
+    public static async Task<Results<Created, ValidationProblem, ProblemHttpResult>> UpdateMaxStockThreshold(
     [AsParameters] CatalogServices services,
     UpdateCatalogItemMaxStockThresholdRequest itemToUpdate,
     IValidator<UpdateCatalogItemMaxStockThresholdRequest> validator,
@@ -149,7 +148,7 @@ public static class CatalogItemEndpoints
         var Item = await services.Context.CatalogItems.FirstOrDefaultAsync(i => i.Slug == itemToUpdate.Slug, cancellationToken);
         if (Item is null)
         {
-            return TypedResults.NotFound($"Item with Slug {itemToUpdate.Slug} not found.");
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.ItemNotFound, itemToUpdate.Slug);
         }
 
         Item.SetMaxStockThreshold(itemToUpdate.MaxStockThreshold);
@@ -159,20 +158,20 @@ public static class CatalogItemEndpoints
         return TypedResults.Created($"/catalog/api/v1/items/{Item.Slug}");
     }
 
-    public static async Task<Results<NoContent, NotFound, BadRequest<string>>> DeleteItemBySlug(
+    public static async Task<Results<NoContent, ProblemHttpResult>> DeleteItemBySlug(
     [AsParameters] CatalogServices services,
     string slug,
     CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(slug))
         {
-            return TypedResults.BadRequest("Slug is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidSlug);
         }
 
         var loadedItem = await services.Context.CatalogItems.FirstOrDefaultAsync(x => x.Slug == slug);
         if (loadedItem is null)
         {
-            return TypedResults.NotFound();
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.ItemNotFound, slug);
         }
 
         services.Context.CatalogItems.Remove(loadedItem);
@@ -185,13 +184,13 @@ public static class CatalogItemEndpoints
         return TypedResults.NoContent();
     }
 
-    public static async Task<Results<Ok<CatalogItemResponse>, NotFound, BadRequest<string>>> GetItemBySlug(
+    public static async Task<Results<Ok<CatalogItemResponse>, ProblemHttpResult>> GetItemBySlug(
     [AsParameters] CatalogServices services,
     string slug)
     {
         if (string.IsNullOrEmpty(slug))
         {
-            return TypedResults.BadRequest("Slug is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidSlug);
         }
 
         var item = await services.Context.CatalogItems
@@ -201,7 +200,7 @@ public static class CatalogItemEndpoints
                                          .FirstOrDefaultAsync(ci => ci.Slug == slug);
         if (item is null)
         {
-            return TypedResults.NotFound();
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.ItemNotFound, slug);
         }
 
         return TypedResults.Ok(
@@ -218,15 +217,14 @@ public static class CatalogItemEndpoints
                 item.MaxStockThreshold, [.. item.Medias]));
     }
     public static async Task<
-    Results<Ok<CursorPaginated<CatalogItemResponse>>, BadRequest<string>>> GetItems(
+    Results<Ok<CursorPaginated<CatalogItemResponse>>, ProblemHttpResult>> GetItems(
     [AsParameters] CatalogServices services,
     string? cursor = null,
     int pageSize = 20,
     CancellationToken cancellationToken = default)
     {
         if (pageSize <= 0 || pageSize > 100)
-            return TypedResults.BadRequest(
-                "PageSize must be between 1 and 100.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidPageSize);
 
         CatalogCursor? decodedCursor = null;
 
@@ -235,7 +233,7 @@ public static class CatalogItemEndpoints
             decodedCursor = CursorHelper.Decode<CatalogCursor>(cursor);
 
             if (decodedCursor is null)
-                return TypedResults.BadRequest("Invalid cursor.");
+                return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidCursor);
         }
 
         var query = services.Context.CatalogItems
@@ -296,22 +294,28 @@ public static class CatalogItemEndpoints
     }
 
 
-    public static async Task<Results<Created,NotFound<string>, BadRequest<string>>> RemindItem(RemindItemRequest request,[FromQuery(Name = "user_id")]Guid userId,string slug, [AsParameters] CatalogServices services, IPublishEndpoint publish, UrlShortenerService urlShortenerService, HttpContext httpContext, CancellationToken cancellationToken)
+    public static async Task<Results<Created,ProblemHttpResult>> RemindItem([FromQuery(Name = "user_id")]Guid userId,string slug, [AsParameters] CatalogServices services, IPublishEndpoint publish, UrlShortenerService urlShortenerService, HttpContext httpContext, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(slug))
         {
-            return TypedResults.BadRequest("Slug is not valid.");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.InvalidSlug);
         }
 
         var loadedItem = await services.Context.CatalogItems.FirstOrDefaultAsync(x => x.Slug == slug);
         if (loadedItem is null)
         {
-            return TypedResults.NotFound($"Item with slug {slug} not found.");
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, MessageCode.ItemNotFound, slug);
         }
         if (loadedItem.AvailableStock>0)
         {
-            return TypedResults.BadRequest("Pleaase make your order, the product is available now in stock");
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.ItemInStock);
         }
+        var alreadyReminded = await services.Context.CatalogReminds
+    .AnyAsync(x => x.Slug == slug && x.UserId == userId, cancellationToken);
+
+        if (alreadyReminded)
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.ReminderAlreadyExists);
+
         var url = await urlShortenerService.GetShortUrl(GetDetailUrl(httpContext,loadedItem.Slug), DateTime.UtcNow.AddDays(7), cancellationToken);
         var templatemessage = $"""
             Dear customer,
@@ -322,6 +326,10 @@ public static class CatalogItemEndpoints
         var channel = NotificationChannel.Sms;
         var remindMessage = new CatalogItemRemindMessage(userId, loadedItem.Slug, templatemessage, channel);
         await publish.Publish(remindMessage, cancellationToken);
+
+        var catalogRemind = new CatalogRemind(loadedItem.Slug, userId);
+        await services.Context.CatalogReminds.AddAsync(catalogRemind, cancellationToken);
+        await services.Context.SaveChangesAsync();
 
         return TypedResults.Created();
 

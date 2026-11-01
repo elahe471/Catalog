@@ -8,6 +8,7 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> dbContextOption
     public DbSet<CatalogBrand> CatalogBrands => Set<CatalogBrand>();
     public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
     public DbSet<CatalogCategory> CatalogCategories => Set<CatalogCategory>();
+    public DbSet<CatalogRemind> CatalogReminds => Set<CatalogRemind>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,4 +1,4 @@
-﻿namespace Catalog.Infrastructure.HealthChecks
+namespace Catalog.Infrastructure.HealthChecks
 {
     public static class HealthCheckResponseWriter
     {
@@ -6,6 +6,12 @@
             HttpContext context,
             HealthReport report)
         {
+            if (context.Response.StatusCode >= StatusCodes.Status400BadRequest)
+            {
+                return ApiErrors.Problem(context.Response.StatusCode, MessageCode.ServiceUnavailable)
+                    .ExecuteAsync(context);
+            }
+
             context.Response.ContentType = "application/json";
 
             var response = new
