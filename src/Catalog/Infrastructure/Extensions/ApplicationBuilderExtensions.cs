@@ -15,7 +15,7 @@ public static class ApplicationBuilderExtensions
         {
             var options = sp.GetRequiredService<IOptions<ShortenerOptions>>().Value;
             client.BaseAddress = new Uri(options.BaseUrl);
-        });
+        }).AddInternalServiceResilience();
 
         builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
    
