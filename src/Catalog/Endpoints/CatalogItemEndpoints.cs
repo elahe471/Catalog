@@ -316,7 +316,7 @@ public static class CatalogItemEndpoints
         if (alreadyReminded)
             return ApiErrors.Problem(StatusCodes.Status400BadRequest, MessageCode.ReminderAlreadyExists);
 
-        var url = await urlShortenerService.GetShortUrl(GetDetailUrl(httpContext,loadedItem.Slug), DateTime.UtcNow.AddDays(7), cancellationToken);
+        var url = await urlShortenerService.GetShortUrl(GetDetailUrl(httpContext,loadedItem.Slug), DateTime.UtcNow.AddDays(7), Guid.NewGuid().ToString(),cancellationToken);
         var templatemessage = $"""
             Dear customer,
             The product you requested now is available in stock. 

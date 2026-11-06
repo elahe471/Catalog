@@ -1,9 +1,16 @@
-﻿
+﻿using System.Net.Http.Json;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
+
 namespace Catalog.Infrastructure.InternalServices;
 
-public class UrlShortenerService(HttpClient httpClient)
+public sealed class UrlShortenerService(HttpClient httpClient)
 {
-    public async Task<string> GetShortUrl(string longUrl,DateTime expirationDate,CancellationToken cancellationToken = default)
+    public async Task<string> GetShortUrl(
+        string longUrl,
+        DateTime expirationDate,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "shortener")
         {
@@ -14,21 +21,57 @@ public class UrlShortenerService(HttpClient httpClient)
             })
         };
 
+        request.Headers.Add( "Idempotency-Key",idempotencyKey);
+
         try
         {
-            using var response = await httpClient.SendAsync( request, cancellationToken);
+            using var response = await httpClient.SendAsync(request,cancellationToken);
 
-            return response.IsSuccessStatusCode
-                ? await response.Content.ReadAsStringAsync(cancellationToken)
-                : throw new ExternalServiceException("UrlShortener",StatusCodes.Status502BadGateway,MessageCode.ExternalServiceFailure);
+            // 200 or 201 is Ok 
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new ExternalServiceException(
+                    "UrlShortener",
+                    StatusCodes.Status502BadGateway,
+                    MessageCode.ExternalServiceFailure);
+            }
+
+            var shortUrl = await response.Content.ReadFromJsonAsync<string>( cancellationToken);
+
+            return shortUrl;
         }
-        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        catch (BrokenCircuitException ex)
         {
-            throw new ExternalServiceException( "UrlShortener",StatusCodes.Status504GatewayTimeout,MessageCode.ExternalServiceTimeout,ex);
+            throw new ExternalServiceException(
+                "UrlShortener",
+                StatusCodes.Status503ServiceUnavailable,
+                MessageCode.ExternalServiceUnavailable,
+                ex);
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            throw new ExternalServiceException(
+                "UrlShortener",
+                StatusCodes.Status504GatewayTimeout,
+                MessageCode.ExternalServiceTimeout,
+                ex);
+        }
+        catch (OperationCanceledException ex)
+            when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ExternalServiceException(
+                "UrlShortener",
+                StatusCodes.Status504GatewayTimeout,
+                MessageCode.ExternalServiceTimeout,
+                ex);
         }
         catch (HttpRequestException ex)
         {
-            throw new ExternalServiceException("UrlShortener",StatusCodes.Status503ServiceUnavailable,MessageCode.ExternalServiceUnavailable,ex);
+            throw new ExternalServiceException(
+                "UrlShortener",
+                StatusCodes.Status503ServiceUnavailable,
+                MessageCode.ExternalServiceUnavailable,
+                ex);
         }
     }
 }
