@@ -324,7 +324,7 @@ public static class CatalogItemEndpoints
             {url}
             """;
         var channel = NotificationChannel.Sms;
-        var remindMessage = new CatalogItemRemindMessage(userId, loadedItem.Slug, templatemessage, channel);
+        var remindMessage = new CatalogItemRemindMessageEvent(userId, loadedItem.Slug, templatemessage, channel);
         await publish.Publish(remindMessage, cancellationToken);
 
         var catalogRemind = new CatalogRemind(loadedItem.Slug, userId);

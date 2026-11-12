@@ -2,7 +2,7 @@
 
 namespace Catalog.Contracts.IntegrationEvents;
 
-public sealed record CatalogItemRemindMessage(Guid UserId,string Slug,string Message,NotificationChannel Channel);
+public sealed record CatalogItemRemindMessageEvent(Guid UserId,string Slug,string Message,NotificationChannel Channel);
 [Flags]
 public enum NotificationChannel
 {
